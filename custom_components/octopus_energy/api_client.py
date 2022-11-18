@@ -73,16 +73,85 @@ account_query = '''query {{
   }}
 }}'''
 
+static_rates_account_query = '''query {{
+  account(accountNumber: "{account_id}") {{
+    electricityAgreements(active: true) {{
+			meterPoint {{
+				mpan
+				meters(includeInactive: false) {{
+					serialNumber
+                    smartExportElectricityMeter {{
+						deviceId
+					}}
+                    smartImportElectricityMeter {{
+						deviceId
+					}}
+				}}
+				agreements {{
+					validFrom
+					validTo
+					tariff {{
+                        ...on TariffType {{
+                            standingCharge
+                            productCode
+                        }}
+						...on StandardTariff {{
+							tariffCode
+                            unitRate
+						}}
+						...on DayNightTariff {{
+							tariffCode
+                            dayRate
+                            nightRate
+						}}
+						...on ThreeRateTariff {{
+							tariffCode
+                            dayRate
+                            nightRate
+                            offPeakRate
+						}}
+                        ...on PrepayTariff {{
+							tariffCode
+                            unitRate
+						}}
+					}}
+				}}
+			}}
+    }}
+    gasAgreements(active: true) {{
+			meterPoint {{
+				mprn
+				meters(includeInactive: false) {{
+					serialNumber
+				}}
+				agreements {{
+					validFrom
+					validTo
+					tariff {{
+						tariffCode
+                        productCode
+                        unitRate
+                        standingCharge
+					}}
+				}}
+			}}
+    }}
+  }}
+}}'''
+
 class OctopusEnergyApiClient:
 
-  def __init__(self, api_key):
+  def __init__(self, api_key, static_rates):
     if (api_key == None):
       raise Exception('API KEY is not set')
+
+    if static_rates:
+        account_query = static_rates_account_query
 
     self._api_key = api_key
     self._base_url = 'https://api.octopus.energy'
 
-  async def async_get_account(self, account_id):
+  async def async_get_account(self, account_id, ):
     """Get the user's account"""
     async with aiohttp.ClientSession() as client:
       url = f'{self._base_url}/v1/graphql/'
@@ -113,6 +182,11 @@ class OctopusEnergyApiClient:
                     "valid_from": a["validFrom"],
                     "valid_to": a["validTo"],
                     "tariff_code": a["tariff"]["tariffCode"] if "tariffCode" in a["tariff"] else None,
+                    "standing_charge": a["tariff"]["standingCharge"] if "standingCharge" in a["tariff"] else None,
+                    "unit_rate": a["tariff"]["unitRate"] if "unitRate" in a["tariff"] else None,
+                    "day_rate": a["tariff"]["dayRate"] if "dayRate" in a["tariff"] else None,
+                    "night_rate": a["tariff"]["nightRate"] if "nightRate" in a["tariff"] else None,
+                    "off_peak_rate": a["tariff"]["offPeakRate"] if "offPeakRate" in a["tariff"] else None,
                   }, mp["meterPoint"]["agreements"]))
                 }, account_response_body["data"]["account"]["electricityAgreements"])),
                 "gas_meter_points": list(map(lambda mp: {
@@ -124,6 +198,8 @@ class OctopusEnergyApiClient:
                     "valid_from": a["validFrom"],
                     "valid_to": a["validTo"],
                     "tariff_code": a["tariff"]["tariffCode"] if "tariffCode" in a["tariff"] else None,
+                    "standing_charge": a["tariff"]["standingCharge"] if "standingCharge" in a["tariff"] else None,
+                    "unit_rate": a["tariff"]["unitRate"] if "unitRate" in a["tariff"] else None,
                   }, mp["meterPoint"]["agreements"]))
                 }, account_response_body["data"]["account"]["gasAgreements"])),
               }
