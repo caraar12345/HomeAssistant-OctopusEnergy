@@ -151,7 +151,7 @@ class OctopusEnergyApiClient:
     self._api_key = api_key
     self._base_url = 'https://api.octopus.energy'
 
-  async def async_get_account(self, account_id, ):
+  async def async_get_account(self, account_id):
     """Get the user's account"""
     async with aiohttp.ClientSession() as client:
       url = f'{self._base_url}/v1/graphql/'
